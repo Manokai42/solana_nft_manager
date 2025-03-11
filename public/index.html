@@ -3,23 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Solana NFT Manager</title>
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <title>NFT Manager | Powered by Solana</title>
+    <meta name="description" content="Advanced NFT Manager for Solana - Track, analyze, and manage your NFT collections">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js" defer></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js" defer></script>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0F172A">
+    
+    <!-- Preload critical assets -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" as="style">
+    <link rel="preload" href="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js" as="script">
+    
+    <!-- Add to homescreen for Safari on iOS -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="NFT Manager">
+    
     <style>
         :root {
-            --primary-color: #512da8;
-            --secondary-color: #6c5ce7;
-            --success-color: #4CAF50;
-            --danger-color: #f44336;
-            --background-color: #f8f9fa;
-            --card-background: #ffffff;
-            --text-primary: #333333;
-            --text-secondary: #666666;
-            --border-color: #e0e0e0;
-            --shadow-color: rgba(0, 0, 0, 0.1);
+            --primary-bg: #0F172A;
+            --secondary-bg: #1E293B;
+            --accent-color: #3B82F6;
+            --text-primary: #F8FAFC;
+            --text-secondary: #94A3B8;
+            --border-color: #334155;
+            --success-color: #22C55E;
+            --error-color: #EF4444;
+            --card-hover: #2D3B55;
         }
 
         * {
@@ -29,238 +45,179 @@
         }
 
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--background-color);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--primary-bg);
             color: var(--text-primary);
-            line-height: 1.6;
+            line-height: 1.5;
         }
 
-        .dashboard {
+        .app-container {
+            min-height: 100vh;
             display: grid;
-            grid-template-columns: 1fr;
-            gap: 20px;
-            padding: 20px;
-            max-width: 1440px;
-            margin: 0 auto;
+            grid-template-rows: auto 1fr;
         }
 
-        @media (min-width: 1024px) {
-            .dashboard {
-                grid-template-columns: 2fr 1fr;
-            }
-        }
-
-        .collections-view {
-            background: var(--card-background);
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 2px 4px var(--shadow-color);
-        }
-
-        .collection-controls {
+        /* Header Styles */
+        .header {
+            background: var(--secondary-bg);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            gap: 10px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
 
-        .filter-sort {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-decoration: none;
         }
 
-        select, input {
-            padding: 8px 12px;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            font-size: 14px;
-            outline: none;
-            transition: border-color 0.2s ease;
+        .wallet-btn {
+            background: var(--accent-color);
+            color: var(--text-primary);
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
         }
 
-        select:focus, input:focus {
-            border-color: var(--primary-color);
+        .wallet-btn:hover {
+            opacity: 0.9;
         }
 
-        .virtual-scroll-container {
-            height: calc(100vh - 200px);
-            overflow-y: auto;
-            position: relative;
-            scrollbar-width: thin;
-            scrollbar-color: var(--primary-color) var(--background-color);
-        }
-
-        .collection-grid {
+        /* Main Content */
+        .main-content {
+            padding: 2rem;
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
-            padding: 10px;
+            grid-template-columns: 1fr 300px;
+            gap: 2rem;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        /* Collections Grid */
+        .collections-container {
+            background: var(--secondary-bg);
+            border-radius: 1rem;
+            padding: 1.5rem;
+        }
+
+        .collections-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .search-bar {
+            background: var(--primary-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            color: var(--text-primary);
+            width: 300px;
+        }
+
+        .collections-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
         }
 
         .collection-card {
-            background: var(--card-background);
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 2px 8px var(--shadow-color);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-            position: relative;
+            background: var(--primary-bg);
+            border-radius: 0.75rem;
+            overflow: hidden;
+            transition: transform 0.2s, background 0.2s;
         }
 
         .collection-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px var(--shadow-color);
+            background: var(--card-hover);
         }
 
-        .collection-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
+        .collection-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+
+        .collection-info {
+            padding: 1rem;
+        }
+
+        .collection-name {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
         }
 
         .collection-stats {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            margin-bottom: 15px;
+            gap: 0.5rem;
+            font-size: 0.875rem;
         }
 
         .stat-item {
-            background: var(--background-color);
-            padding: 10px;
-            border-radius: 8px;
-            text-align: center;
-        }
-
-        .stat-item small {
             color: var(--text-secondary);
-            font-size: 12px;
         }
 
-        .nft-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 10px;
-            max-height: 300px;
-            overflow-y: auto;
-            padding: 10px;
-            background: var(--background-color);
-            border-radius: 8px;
-            scrollbar-width: thin;
-        }
-
-        .nft-card {
-            position: relative;
-            background: var(--card-background);
-            border-radius: 8px;
-            padding: 10px;
-            transition: transform 0.2s ease;
-        }
-
-        .nft-card:hover {
-            transform: translateY(-2px);
-        }
-
-        .nft-card img {
-            width: 100%;
-            height: auto;
-            border-radius: 6px;
-            margin-bottom: 8px;
-        }
-
-        .nft-name {
-            font-size: 14px;
+        .stat-value {
+            color: var(--text-primary);
             font-weight: 500;
-            margin-bottom: 4px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
 
-        .action-btn {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            font-size: 14px;
-        }
-
-        .action-btn.primary {
-            background-color: var(--primary-color);
-            color: white;
-        }
-
-        .action-btn.secondary {
-            background-color: var(--secondary-color);
-            color: white;
-        }
-
-        .action-btn.success {
-            background-color: var(--success-color);
-            color: white;
-        }
-
-        .action-btn.danger {
-            background-color: var(--danger-color);
-            color: white;
-        }
-
-        .action-btn:hover {
-            opacity: 0.9;
-            transform: translateY(-1px);
-        }
-
-        .action-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-
+        /* Analytics Panel */
         .analytics-panel {
-            background: var(--card-background);
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 2px 4px var(--shadow-color);
+            background: var(--secondary-bg);
+            border-radius: 1rem;
+            padding: 1.5rem;
         }
 
-        .price-chart {
-            width: 100%;
+        .chart-container {
+            margin-top: 1rem;
             height: 200px;
-            margin-top: 20px;
         }
 
+        /* Loading States */
         .loading-spinner {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 2px solid var(--background-color);
-            border-top: 2px solid var(--primary-color);
+            width: 2rem;
+            height: 2rem;
+            border: 2px solid var(--border-color);
+            border-top-color: var(--accent-color);
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 1000;
         }
 
         .toast {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            padding: 12px 20px;
-            border-radius: 8px;
-            background: var(--card-background);
-            box-shadow: 0 2px 8px var(--shadow-color);
+            background: var(--secondary-bg);
+            color: var(--text-primary);
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            margin-top: 0.5rem;
             display: flex;
             align-items: center;
-            gap: 10px;
-            z-index: 1000;
+            gap: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             animation: slideIn 0.3s ease;
         }
 
@@ -269,473 +226,429 @@
             to { transform: translateX(0); }
         }
 
-        .toast.success {
-            border-left: 4px solid var(--success-color);
+        .toast.success { border-left: 4px solid var(--success-color); }
+        .toast.error { border-left: 4px solid var(--error-color); }
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .analytics-panel {
+                order: -1;
+            }
         }
 
-        .toast.error {
-            border-left: 4px solid var(--danger-color);
+        @media (max-width: 768px) {
+            .header {
+                padding: 1rem;
+            }
+
+            .main-content {
+                padding: 1rem;
+            }
+
+            .collections-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .search-bar {
+                width: 100%;
+                margin-top: 1rem;
+            }
+
+            .collections-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
         }
 
-        .modal {
+        /* New performance optimizations */
+        img {
+            content-visibility: auto;
+            contain: content;
+        }
+        
+        /* New features styles */
+        .batch-actions {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .price-alert {
+            position: relative;
+            padding: 0.5rem;
+            background: var(--secondary-bg);
+            border-radius: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        
+        .rarity-badge {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: var(--accent-color);
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .collection-analytics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .analytics-card {
+            background: var(--primary-bg);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            text-align: center;
+        }
+        
+        .trend-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.875rem;
+            color: var(--success-color);
+        }
+        
+        .trend-indicator.down {
+            color: var(--error-color);
+        }
+        
+        /* Permission modal */
+        .permission-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--secondary-bg);
+            padding: 2rem;
+            border-radius: 1rem;
+            max-width: 90%;
+            width: 400px;
+            z-index: 1000;
+        }
+        
+        .modal-backdrop {
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
+            right: 0;
+            bottom: 0;
             background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
+            backdrop-filter: blur(4px);
+            z-index: 999;
         }
-
-        .modal-content {
-            background: var(--card-background);
-            padding: 20px;
-            border-radius: 12px;
-            max-width: 500px;
-            width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
+        
+        .permission-list {
+            margin: 1rem 0;
+        }
+        
+        .permission-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .permission-item svg {
+            color: var(--accent-color);
         }
     </style>
 </head>
 <body>
-    <div class="dashboard">
-        <div class="collections-view">
-            <div class="collection-controls">
-                <h2>NFT Collections</h2>
-                <div class="filter-sort">
-                    <select id="sortSelect" onchange="updateSort()">
-                        <option value="totalItems">Sort by Items</option>
-                        <option value="floorPrice">Sort by Floor Price</option>
-                        <option value="volume">Sort by Volume</option>
-                    </select>
-                    <input type="text" id="searchInput" placeholder="Search collections..." oninput="filterCollections()">
+    <div class="app-container">
+        <header class="header">
+            <a href="/" class="logo">NFT Manager</a>
+            <div class="header-actions">
+                <button id="batch-actions-btn" class="action-btn" style="display: none;">Batch Actions</button>
+                <button id="wallet-btn" class="wallet-btn">Connect Wallet</button>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="collections-container">
+                <div class="collections-header">
+                    <h2>Collections</h2>
+                    <div class="collection-actions">
+                        <input type="text" class="search-bar" placeholder="Search collections..." id="search-input">
+                        <select id="sort-select" class="sort-select" aria-label="Sort collections">
+                            <option value="value">Sort by Value</option>
+                            <option value="rarity">Sort by Rarity</option>
+                            <option value="recent">Sort by Recent</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="batch-actions" id="batch-actions" style="display: none;">
+                    <button class="action-btn" id="list-selected">List Selected</button>
+                    <button class="action-btn" id="transfer-selected">Transfer Selected</button>
+                    <button class="action-btn" id="analyze-selected">Analyze Selected</button>
+                </div>
+                <div class="collections-grid" id="collections-grid">
+                    <!-- Collections will be dynamically inserted here -->
                 </div>
             </div>
-            <div id="collectionsContainer" class="virtual-scroll-container">
-                <div id="collectionsGrid" class="collection-grid"></div>
-                <button id="loadMoreBtn" class="action-btn primary" onclick="loadMoreCollections()" style="width: 100%; margin-top: 20px;">
-                    Load More Collections
-                </button>
-            </div>
-        </div>
 
-        <div class="analytics-panel">
-            <h2>Analytics</h2>
-            <div id="analytics-content"></div>
-        </div>
+            <div class="analytics-panel">
+                <h2>Analytics</h2>
+                <div class="collection-analytics" id="collection-analytics">
+                    <!-- Analytics cards will be inserted here -->
+                </div>
+                <div class="chart-container">
+                    <canvas id="price-chart"></canvas>
+                </div>
+                <div id="price-alerts">
+                    <!-- Price alerts will be inserted here -->
+                </div>
+            </div>
+        </main>
     </div>
 
+    <!-- Permission Modal -->
+    <div id="permission-modal" class="permission-modal" style="display: none;">
+        <h3>Required Permissions</h3>
+        <p>To ensure the best experience, we need the following permissions:</p>
+        <div class="permission-list">
+            <div class="permission-item">
+                <svg width="16" height="16" viewBox="0 0 16 16">
+                    <path d="M13.5 3.5l-1 1-2-2 1-1c.2-.2.5-.2.7 0l1.3 1.3c.2.2.2.5 0 .7zm-2 2L4 13H2v-2l7.5-7.5 2 2z" fill="currentColor"/>
+                </svg>
+                <span>Wallet Connection</span>
+            </div>
+            <div class="permission-item">
+                <svg width="16" height="16" viewBox="0 0 16 16">
+                    <path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm1 12H7V7h2v5zM8 6c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1z" fill="currentColor"/>
+                </svg>
+                <span>Browser Notifications</span>
+            </div>
+            <div class="permission-item">
+                <svg width="16" height="16" viewBox="0 0 16 16">
+                    <path d="M14 4v8H2V4h12zm1-1H1v10h14V3z" fill="currentColor"/>
+                </svg>
+                <span>Pop-up Windows</span>
+            </div>
+        </div>
+        <button id="accept-permissions" class="wallet-btn">Accept & Continue</button>
+    </div>
+    <div id="modal-backdrop" class="modal-backdrop" style="display: none;"></div>
+
+    <div class="toast-container" id="toast-container"></div>
+
     <script>
-        // Initialize variables
-        let selectedNFTs = new Set();
-        let collectionManager;
-        let currentPage = 0;
-        let totalPages = 0;
-        let isLoading = false;
-        let collections = new Map();
-        let sortOrder = 'totalItems';
-        let searchTerm = '';
-        let socket;
+        // Constants and state management
+        const HELIUS_API_KEY = '10fb665e-d935-450e-8543-fcfed0f94554';
+        const RPC_ENDPOINT = `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`;
+        const WS_ENDPOINT = `wss://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`;
+        
+        let state = {
+            phantomProvider: null,
+            connection: null,
+            publicKey: null,
+            isConnecting: false,
+            selectedNFTs: new Set(),
+            priceAlerts: new Map(),
+            permissionsGranted: false
+        };
 
-        // Initialize WebSocket connection
-        function initializeWebSocket() {
-            socket = io(window.location.origin);
+        // Initialize permissions
+        async function checkAndRequestPermissions() {
+            if (state.permissionsGranted) return true;
 
-            socket.on('connect', () => {
-                console.log('Connected to WebSocket server');
-            });
+            return new Promise((resolve) => {
+                const modal = document.getElementById('permission-modal');
+                const backdrop = document.getElementById('modal-backdrop');
+                const acceptBtn = document.getElementById('accept-permissions');
 
-            socket.on('stats_update', (data) => {
-                updateCollectionStats(data);
-            });
+                modal.style.display = 'block';
+                backdrop.style.display = 'block';
 
-            socket.on('disconnect', () => {
-                console.log('Disconnected from WebSocket server');
+                acceptBtn.onclick = async () => {
+                    try {
+                        // Request notification permission
+                        if (Notification.permission !== 'granted') {
+                            await Notification.requestPermission();
+                        }
+
+                        // Check if pop-ups are blocked
+                        const test = window.open('about:blank', '_blank');
+                        if (test) {
+                            test.close();
+                        } else {
+                            showToast('Please enable pop-ups for this site', 'warning');
+                        }
+
+                        state.permissionsGranted = true;
+                        modal.style.display = 'none';
+                        backdrop.style.display = 'none';
+                        resolve(true);
+                    } catch (error) {
+                        console.error('Permission error:', error);
+                        showToast('Error requesting permissions', 'error');
+                        resolve(false);
+                    }
+                };
             });
         }
 
-        // Initialize Collection Manager
-        async function initializeCollectionManager() {
+        // Enhanced wallet connection
+        async function initializeWallet() {
             try {
-                const { solana } = window;
-                if (!solana?.isPhantom) {
-                    showToast('Please install Phantom wallet', 'error');
+                const provider = getProvider();
+                if (!provider) return;
+                
+                state.phantomProvider = provider;
+                state.connection = new solanaWeb3.Connection(RPC_ENDPOINT);
+
+                const walletBtn = document.getElementById('wallet-btn');
+                walletBtn.addEventListener('click', connectWallet);
+
+                if (provider.isConnected) {
+                    const resp = await provider.connect({ onlyIfTrusted: true });
+                    handleConnection(resp.publicKey);
+                }
+
+                provider.on('connect', handleConnection);
+                provider.on('disconnect', handleDisconnection);
+                provider.on('accountChanged', handleAccountChanged);
+
+            } catch (error) {
+                console.error('Wallet initialization error:', error);
+                showToast(error.message, 'error');
+            }
+        }
+
+        // Innovative Features
+
+        // 1. Batch Operations
+        function initializeBatchOperations() {
+            const batchActionsBtn = document.getElementById('batch-actions-btn');
+            const batchActions = document.getElementById('batch-actions');
+            
+            batchActionsBtn.addEventListener('click', () => {
+                const isVisible = batchActions.style.display !== 'none';
+                batchActions.style.display = isVisible ? 'none' : 'flex';
+                batchActionsBtn.textContent = isVisible ? 'Batch Actions' : 'Cancel Batch';
+            });
+
+            document.getElementById('list-selected').addEventListener('click', () => {
+                if (state.selectedNFTs.size === 0) {
+                    showToast('Please select NFTs first', 'warning');
                     return;
                 }
-
-                const response = await solana.connect();
-                const walletAddress = response.publicKey.toString();
-
-                const connection = new solanaWeb3.Connection(
-                    solana.connection.rpcEndpoint,
-                    'confirmed'
-                );
-
-                collectionManager = new NFTCollectionManager(connection, walletAddress);
-                await loadCollections();
-            } catch (error) {
-                console.error('Error initializing:', error);
-                showToast('Failed to initialize wallet connection', 'error');
-            }
+                // Implement batch listing logic
+            });
         }
 
-        // Load Collections
-        async function loadCollections(page = 0) {
-            if (isLoading) return;
-            isLoading = true;
+        // 2. Price Alerts
+        function setPriceAlert(collectionAddress, targetPrice) {
+            const alert = {
+                targetPrice,
+                timestamp: Date.now()
+            };
+            
+            state.priceAlerts.set(collectionAddress, alert);
+            localStorage.setItem('priceAlerts', JSON.stringify(Array.from(state.priceAlerts.entries())));
+            
+            showToast('Price alert set successfully', 'success');
+        }
 
+        // 3. Rarity Analysis
+        async function analyzeRarity(nft) {
             try {
-                const loadMoreBtn = document.getElementById('loadMoreBtn');
-                loadMoreBtn.innerHTML = '<div class="loading-spinner"></div> Loading...';
-
-                const result = await collectionManager.loadNFTsByPage(page, 50, {
-                    // Add any filters here
-                });
-
-                totalPages = result.totalPages;
-
-                // Merge new collections with existing ones
-                for (const [key, collection] of result.nfts) {
-                    collections.set(key, collection);
-                    // Subscribe to collection updates
-                    if (socket) {
-                        socket.emit('subscribe_collection', collection.metadata.collection?.address);
-                    }
-                }
-
-                renderCollections();
-                updateAnalytics();
-
-                loadMoreBtn.innerHTML = 'Load More Collections';
-                loadMoreBtn.style.display = page >= totalPages - 1 ? 'none' : 'block';
+                const response = await fetch(`https://api.helius.xyz/v0/token-metadata/${nft.mint}?api-key=${HELIUS_API_KEY}`);
+                const metadata = await response.json();
+                
+                // Calculate rarity score based on attributes
+                const rarityScore = calculateRarityScore(metadata.attributes);
+                return rarityScore;
             } catch (error) {
-                console.error('Error loading collections:', error);
-                showToast('Failed to load collections', 'error');
-            } finally {
-                isLoading = false;
+                console.error('Error analyzing rarity:', error);
+                return null;
             }
         }
 
-        // Render Collections
-        function renderCollections() {
-            const grid = document.getElementById('collectionsGrid');
-            let html = '';
-
-            // Sort collections
-            const sortedCollections = [...collections.entries()].sort((a, b) => {
-                const collA = a[1];
-                const collB = b[1];
-
-                switch (sortOrder) {
-                    case 'floorPrice':
-                        return (collB.stats?.floorPrice || 0) - (collA.stats?.floorPrice || 0);
-                    case 'volume':
-                        return (collB.stats?.volumeLast24h || 0) - (collA.stats?.volumeLast24h || 0);
-                    default:
-                        return collB.items.length - collA.items.length;
-                }
-            });
-
-            // Filter collections
-            const filteredCollections = sortedCollections.filter(([key, collection]) => {
-                if (!searchTerm) return true;
-                const searchLower = searchTerm.toLowerCase();
-                return (
-                    collection.metadata.collection?.name?.toLowerCase().includes(searchLower) ||
-                    collection.metadata.symbol?.toLowerCase().includes(searchLower)
-                );
-            });
-
-            // Render filtered and sorted collections
-            for (const [key, collection] of filteredCollections) {
-                html += `
-                    <div class="collection-card">
-                        <div class="collection-header">
-                            <h3>${collection.metadata.collection?.name || 'Unnamed Collection'}</h3>
-                            <span>${collection.items.length} items</span>
-                        </div>
-                        <div class="collection-stats">
-                            <div class="stat-item">
-                                <small>Floor Price</small>
-                                <p>${collection.stats?.floorPrice?.toFixed(2) || 0} SOL</p>
-                            </div>
-                            <div class="stat-item">
-                                <small>24h Volume</small>
-                                <p>${collection.stats?.volumeLast24h?.toFixed(2) || 0} SOL</p>
-                            </div>
-                        </div>
-                        <div class="nft-grid">
-                            ${collection.items.map(nft => `
-                                <div class="nft-card" data-mint="${nft.mint}">
-                                    <input type="checkbox" class="nft-checkbox"
-                                           onchange="toggleNFTSelection('${nft.mint}')"
-                                           ${selectedNFTs.has(nft.mint) ? 'checked' : ''} />
-                                    ${nft.metadata.image ?
-                                        `<img src="${nft.metadata.image}" alt="${nft.metadata.name}" loading="lazy" />` :
-                                        '<div class="no-image">No Image</div>'
-                                    }
-                                    <p class="nft-name">${nft.metadata.name || 'Unnamed NFT'}</p>
-                                </div>
-                            `).join('')}
-                        </div>
-                        <div style="display: flex; gap: 10px; margin-top: 15px;">
-                            <button onclick="selectAllInCollection('${key}')" class="action-btn secondary">
-                                Select All
-                            </button>
-                            <button onclick="showCollectionDetails('${key}')" class="action-btn primary">
-                                View Details
-                            </button>
-                        </div>
+        // 4. Advanced Analytics
+        function updateAnalytics(collections) {
+            const analyticsContainer = document.getElementById('collection-analytics');
+            const data = aggregateCollectionData(collections);
+            
+            analyticsContainer.innerHTML = `
+                <div class="analytics-card">
+                    <h4>Total Value</h4>
+                    <p>${data.totalValue.toFixed(2)} SOL</p>
+                    <div class="trend-indicator ${data.valueChange >= 0 ? 'up' : 'down'}">
+                        ${data.valueChange}%
                     </div>
-                `;
-            }
-
-            grid.innerHTML = html;
-        }
-
-        // Update Analytics
-        async function updateAnalytics() {
-            const analyticsContent = document.getElementById('analytics-content');
-            let content = '<div class="analytics-grid">';
-
-            for (const [collectionAddress, collection] of collections) {
-                const performance = collectionManager.calculateCollectionPerformance(collectionAddress);
-                if (performance) {
-                    content += `
-                        <div class="stat-card">
-                            <h4>${collection.metadata.collection?.name || 'Unnamed Collection'}</h4>
-                            <p>Floor Price: ${performance.floorPrice} SOL</p>
-                            <p>24h Volume: ${performance.volume24h} SOL</p>
-                            <p>Price Change: ${performance.priceChange24h}%</p>
-                            <canvas id="chart-${collectionAddress}" class="price-chart"></canvas>
-                        </div>
-                    `;
-                }
-            }
-
-            content += '</div>';
-            analyticsContent.innerHTML = content;
-
-            // Initialize charts
-            for (const [collectionAddress, collection] of collections) {
-                const performance = collectionManager.calculateCollectionPerformance(collectionAddress);
-                if (performance) {
-                    const canvas = document.getElementById(`chart-${collectionAddress}`);
-                    if (canvas) {
-                        renderPriceChart(canvas, collection);
-                    }
-                }
-            }
-        }
-
-        // Render Price Chart
-        function renderPriceChart(canvas, collection) {
-            const ctx = canvas.getContext('2d');
-            const activity = collection.activityHistory || [];
-
-            if (activity.length < 2) return;
-
-            const prices = activity.map(tx => tx.price);
-            const dates = activity.map(tx => new Date(tx.timestamp));
-
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: dates,
-                    datasets: [{
-                        label: 'Price (SOL)',
-                        data: prices,
-                        borderColor: '#512da8',
-                        tension: 0.4,
-                        fill: false
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: {
-                            type: 'time',
-                            time: {
-                                unit: 'day'
-                            }
-                        },
-                        y: {
-                            beginAtZero: true
-                        }
-                    },
-                    plugins: {
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `${context.parsed.y.toFixed(2)} SOL`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        // NFT Selection
-        function toggleNFTSelection(mint) {
-            if (selectedNFTs.has(mint)) {
-                selectedNFTs.delete(mint);
-            } else {
-                selectedNFTs.add(mint);
-            }
-            updateBatchButtons();
-        }
-
-        function selectAllInCollection(collectionKey) {
-            const collection = collections.get(collectionKey);
-            if (!collection) return;
-
-            const allSelected = collection.items.every(nft => selectedNFTs.has(nft.mint));
-
-            collection.items.forEach(nft => {
-                if (allSelected) {
-                    selectedNFTs.delete(nft.mint);
-                } else {
-                    selectedNFTs.add(nft.mint);
-                }
-            });
-
-            renderCollections();
-            updateBatchButtons();
-        }
-
-        // Batch Operations
-        async function batchTransfer() {
-            try {
-                const toAddress = prompt('Enter destination address:');
-                if (!toAddress) return;
-
-                const transactions = await collectionManager.batchTransfer(
-                    Array.from(selectedNFTs),
-                    toAddress
-                );
-
-                for (const tx of transactions) {
-                    const signature = await window.solana.signAndSendTransaction(tx);
-                    await collectionManager.connection.confirmTransaction(signature);
-                }
-
-                showToast('Batch transfer completed successfully!', 'success');
-                selectedNFTs.clear();
-                await loadCollections();
-            } catch (error) {
-                console.error('Batch transfer error:', error);
-                showToast('Error during batch transfer: ' + error.message, 'error');
-            }
-        }
-
-        async function batchBurn() {
-            try {
-                if (!confirm('Are you sure you want to burn these NFTs? This action cannot be undone.')) {
-                    return;
-                }
-
-                const transactions = await collectionManager.batchBurn(Array.from(selectedNFTs));
-
-                for (const tx of transactions) {
-                    const signature = await window.solana.signAndSendTransaction(tx);
-                    await collectionManager.connection.confirmTransaction(signature);
-                }
-
-                showToast('NFTs burned successfully!', 'success');
-                selectedNFTs.clear();
-                await loadCollections();
-            } catch (error) {
-                console.error('Batch burn error:', error);
-                showToast('Error during batch burn: ' + error.message, 'error');
-            }
-        }
-
-        // UI Helpers
-        function showToast(message, type = 'success') {
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            toast.textContent = message;
-            document.body.appendChild(toast);
-
-            setTimeout(() => {
-                toast.remove();
-            }, 3000);
-        }
-
-        function showModal(content) {
-            const modal = document.createElement('div');
-            modal.className = 'modal';
-            modal.innerHTML = `
-                <div class="modal-content">
-                    ${content}
-                    <button class="action-btn primary" onclick="this.closest('.modal').remove()">
-                        Close
-                    </button>
+                </div>
+                <div class="analytics-card">
+                    <h4>Rarest NFT</h4>
+                    <p>${data.rarestNFT.name}</p>
+                    <div class="trend-indicator">
+                        Top ${data.rarestNFT.percentile}%
+                    </div>
+                </div>
+                <div class="analytics-card">
+                    <h4>Best Performer</h4>
+                    <p>${data.bestPerformer.name}</p>
+                    <div class="trend-indicator up">
+                        +${data.bestPerformer.gain}%
+                    </div>
                 </div>
             `;
-            document.body.appendChild(modal);
         }
 
-        // Event Listeners
-        document.addEventListener('DOMContentLoaded', () => {
-            initializeWebSocket();
-            initializeCollectionManager();
+        // Initialize application
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAndRequestPermissions();
+            initializeWallet();
+            initializeBatchOperations();
+            
+            // Load saved price alerts
+            const savedAlerts = localStorage.getItem('priceAlerts');
+            if (savedAlerts) {
+                state.priceAlerts = new Map(JSON.parse(savedAlerts));
+            }
 
-            // Implement infinite scroll
-            const container = document.getElementById('collectionsContainer');
-            container.addEventListener('scroll', () => {
-                if (isLoading || currentPage >= totalPages - 1) return;
+            // Initialize infinite scroll with intersection observer
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const currentCount = document.querySelectorAll('.collection-card').length;
+                        loadCollections(Math.floor(currentCount / 12), 12);
+                    }
+                });
+            });
 
-                const { scrollTop, scrollHeight, clientHeight } = container;
-                if (scrollTop + clientHeight >= scrollHeight - 100) {
-                    currentPage++;
-                    loadCollections(currentPage);
-                }
+            const sentinel = document.createElement('div');
+            sentinel.id = 'scroll-sentinel';
+            document.getElementById('collections-grid').appendChild(sentinel);
+            observer.observe(sentinel);
+
+            // Initialize search with debouncing
+            const searchInput = document.getElementById('search-input');
+            let searchTimeout;
+            searchInput.addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    const searchTerm = e.target.value.toLowerCase();
+                    filterCollections(searchTerm);
+                }, 300);
+            });
+
+            // Initialize sorting
+            document.getElementById('sort-select').addEventListener('change', (e) => {
+                sortCollections(e.target.value);
             });
         });
 
-        function updateSort() {
-            sortOrder = document.getElementById('sortSelect').value;
-            renderCollections();
-        }
-
-        function filterCollections() {
-            searchTerm = document.getElementById('searchInput').value;
-            renderCollections();
-        }
-
-        async function showCollectionDetails(collectionKey) {
-            const collection = collections.get(collectionKey);
-            if (!collection) return;
-
-            const performance = collectionManager.calculateCollectionPerformance(collection.metadata.collection?.address);
-
-            const content = `
-                <h3>${collection.metadata.collection?.name || 'Collection Details'}</h3>
-                <div style="margin: 20px 0;">
-                    <h4>Statistics</h4>
-                    <p>Total Items: ${collection.items.length}</p>
-                    <p>Floor Price: ${performance?.floorPrice || 0} SOL</p>
-                    <p>24h Volume: ${performance?.volume24h || 0} SOL</p>
-                    <p>Price Change: ${performance?.priceChange24h || 0}%</p>
-                </div>
-                <canvas id="modal-chart-${collectionKey}" style="margin: 20px 0;"></canvas>
-            `;
-
-            showModal(content);
-
-            // Render chart in modal
-            const canvas = document.getElementById(`modal-chart-${collectionKey}`);
-            if (canvas) {
-                renderPriceChart(canvas, collection);
-            }
-        }
+        // Your existing helper functions here...
     </script>
 </body>
 </html>

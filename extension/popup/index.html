@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solana NFT Manager</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <h1>NFT Manager</h1>
+            <button id="connect-wallet" class="primary-button">Connect Wallet</button>
+        </header>
+
+        <main class="main-content">
+            <div class="stats-panel">
+                <div class="stat-card">
+                    <h3>Total NFTs</h3>
+                    <p id="total-nfts">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Collections</h3>
+                    <p id="total-collections">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Floor Value</h3>
+                    <p id="total-value">-</p>
+                </div>
+            </div>
+
+            <div class="actions-panel">
+                <button id="refresh" class="secondary-button">
+                    <span class="icon">🔄</span> Refresh
+                </button>
+                <button id="batch-actions" class="secondary-button">
+                    <span class="icon">📦</span> Batch Actions
+                </button>
+                <button id="settings" class="secondary-button">
+                    <span class="icon">⚙️</span> Settings
+                </button>
+            </div>
+
+            <div class="collections-list">
+                <div class="list-header">
+                    <h2>Your Collections</h2>
+                    <input type="text" id="search" placeholder="Search collections...">
+                </div>
+                <div id="collections-container" class="collections-container">
+                    <!-- Collections will be dynamically inserted here -->
+                </div>
+            </div>
+        </main>
+
+        <div id="loading-overlay" class="loading-overlay hidden">
+            <div class="spinner"></div>
+            <p>Loading your NFTs...</p>
+        </div>
+    </div>
+
+    <script src="../src/lib/web3.min.js"></script>
+    <script src="popup.js"></script>
+</body>
+</html> 

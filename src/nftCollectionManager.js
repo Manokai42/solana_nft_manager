@@ -1,7 +1,8 @@
 const { Connection, PublicKey } = require('@solana/web3.js');
 const { Metadata } = require('@metaplex-foundation/mpl-token-metadata');
 const fetch = require('node-fetch');
-const LRUCache = require('lru-cache');
+const { LRUCache } = require('lru-cache');
+const winston = require('winston');
 
 class NFTCollectionManager {
     constructor(connection, walletAddress) {
@@ -10,85 +11,195 @@ class NFTCollectionManager {
         this.collections = new Map();
         this.floorPrices = new Map();
         this.activityHistory = new Map();
+        this.connectionPool = [];
+        this.currentConnectionIndex = 0;
 
-        // Initialize caches
+        // Enhanced logging
+        this.logger = winston.createLogger({
+            level: process.env.LOG_LEVEL || 'info',
+            format: winston.format.combine(
+                winston.format.timestamp(),
+                winston.format.json()
+            ),
+            transports: [
+                new winston.transports.File({ 
+                    filename: process.env.LOG_FILE_PATH || 'logs/nft-manager.log'
+                })
+            ]
+        });
+
+        // Initialize connection pool
+        this._initializeConnectionPool();
+
+        // Initialize enhanced caches with better memory management
         this.metadataCache = new LRUCache({
-            max: 10000, // Cache size
-            maxAge: 1000 * 60 * 60 // 1 hour
+            max: parseInt(process.env.METADATA_CACHE_MAX_SIZE) || 10000,
+            ttl: parseInt(process.env.METADATA_CACHE_TTL) || 1000 * 60 * 60,
+            updateAgeOnGet: true,
+            dispose: (key, value) => {
+                this.logger.debug(`Disposing metadata cache entry: ${key}`);
+            }
         });
 
         this.statsCache = new LRUCache({
-            max: 1000,
-            maxAge: 1000 * 60 * 5 // 5 minutes
+            max: parseInt(process.env.CACHE_MAX_ITEMS) || 1000,
+            ttl: parseInt(process.env.CACHE_TTL) || 1000 * 60 * 5,
+            updateAgeOnGet: true,
+            dispose: (key, value) => {
+                this.logger.debug(`Disposing stats cache entry: ${key}`);
+            }
         });
 
-        this.BATCH_SIZE = 50; // Number of NFTs to load at once
+        this.BATCH_SIZE = parseInt(process.env.MAX_BATCH_SIZE) || 50;
+        
+        // Initialize cleanup interval
+        this._initializeCleanupInterval();
+    }
+
+    _initializeConnectionPool() {
+        const endpoints = [
+            process.env.SOLANA_RPC_ENDPOINT,
+            process.env.RPC_ENDPOINT,
+            'https://api.mainnet-beta.solana.com'
+        ].filter(Boolean);
+
+        this.connectionPool = endpoints.map(endpoint => 
+            new Connection(endpoint, { commitment: 'confirmed' })
+        );
+    }
+
+    _getNextConnection() {
+        const connection = this.connectionPool[this.currentConnectionIndex];
+        this.currentConnectionIndex = (this.currentConnectionIndex + 1) % this.connectionPool.length;
+        return connection;
+    }
+
+    _initializeCleanupInterval() {
+        // Cleanup unused resources every hour
+        setInterval(() => {
+            this._cleanupUnusedResources();
+        }, 1000 * 60 * 60);
+    }
+
+    async _cleanupUnusedResources() {
+        try {
+            // Clean up old collection data
+            const now = Date.now();
+            for (const [key, value] of this.collections.entries()) {
+                if (now - value.lastAccessed > 24 * 60 * 60 * 1000) {
+                    this.collections.delete(key);
+                }
+            }
+
+            // Clean up old activity history
+            for (const [key, value] of this.activityHistory.entries()) {
+                if (now - value.timestamp > 24 * 60 * 60 * 1000) {
+                    this.activityHistory.delete(key);
+                }
+            }
+
+            this.logger.info('Completed resource cleanup');
+        } catch (error) {
+            this.logger.error('Error during resource cleanup:', error);
+        }
     }
 
     async loadNFTsByPage(page = 0, itemsPerPage = 50) {
+        const cacheKey = `nfts_${this.walletAddress}_${page}_${itemsPerPage}`;
+        
         try {
+            // Check cache first
+            const cachedData = this.metadataCache.get(cacheKey);
+            if (cachedData) {
+                this.logger.debug(`Cache hit for NFTs page ${page}`);
+                return cachedData;
+            }
+
             const start = page * itemsPerPage;
             const response = await fetch(
-                `https://api.helius.xyz/v0/addresses/${this.walletAddress}/nfts?api-key=${process.env.HELIUS_API_KEY}&pagination=${start},${itemsPerPage}`
+                `https://api.helius.xyz/v0/addresses/${this.walletAddress}/nfts?api-key=${process.env.HELIUS_API_KEY}&pagination=${start},${itemsPerPage}`,
+                {
+                    timeout: 10000,
+                    retry: 3,
+                    retryDelay: 1000
+                }
             );
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
             const data = await response.json();
-            return this._processNFTData(data);
+            const processedData = await this._processNFTData(data);
+            
+            // Cache the results
+            this.metadataCache.set(cacheKey, processedData);
+            
+            return processedData;
         } catch (error) {
-            console.error('Error loading NFTs by page:', error);
-            return { nfts: [], totalPages: 0 };
+            this.logger.error(`Error loading NFTs by page: ${error.message}`);
+            throw error;
         }
     }
 
     async _processNFTData(data) {
-        const nfts = data.nfts || [];
-        const totalItems = data.total || nfts.length;
-        const totalPages = Math.ceil(totalItems / this.BATCH_SIZE);
+        try {
+            const nfts = data.nfts || [];
+            const totalItems = data.total || nfts.length;
+            const totalPages = Math.ceil(totalItems / this.BATCH_SIZE);
 
-        // Group NFTs by collection
-        const groupedNFTs = await this.groupNFTsByMetadata(nfts);
-
-        // Update collection stats in batches
-        const collectionAddresses = [...new Set(nfts.map(nft => nft.collection?.address).filter(Boolean))];
-        await this._updateCollectionStats(collectionAddresses);
-
-        return {
-            nfts: groupedNFTs,
-            totalPages,
-            currentPage: data.page || 0
-        };
-    }
-
-    async _updateCollectionStats(collectionAddresses) {
-        const batchSize = 10;
-        for (let i = 0; i < collectionAddresses.length; i += batchSize) {
-            const batch = collectionAddresses.slice(i, i + batchSize);
-            await Promise.all(
-                batch.map(async (address) => {
-                    if (!this.statsCache.has(address)) {
-                        const stats = await this.getCollectionStats(address);
-                        if (stats) {
-                            this.statsCache.set(address, stats);
-                        }
-                    }
-                })
-            );
-        }
-    }
-
-    async groupNFTsByMetadata(nfts) {
-        const groups = new Map();
-
-        for (const nft of nfts) {
-            const key = this._generateMetadataKey(nft.metadata);
-            if (!groups.has(key)) {
-                groups.set(key, {
-                    metadata: nft.metadata,
-                    items: [],
-                    stats: await this._getCollectionStatsFromCache(nft.collection?.address)
-                });
+            // Process NFTs in parallel batches
+            const batchPromises = [];
+            for (let i = 0; i < nfts.length; i += this.BATCH_SIZE) {
+                const batch = nfts.slice(i, Math.min(i + this.BATCH_SIZE, nfts.length));
+                batchPromises.push(this._processBatch(batch));
             }
-            groups.get(key).items.push(nft);
+
+            const processedBatches = await Promise.all(batchPromises);
+            const groupedNFTs = new Map();
+            
+            // Merge batch results
+            processedBatches.forEach(batch => {
+                for (const [key, value] of batch.entries()) {
+                    if (groupedNFTs.has(key)) {
+                        groupedNFTs.get(key).items.push(...value.items);
+                    } else {
+                        groupedNFTs.set(key, value);
+                    }
+                }
+            });
+
+            return {
+                nfts: groupedNFTs,
+                totalPages,
+                currentPage: data.page || 0,
+                timestamp: Date.now()
+            };
+        } catch (error) {
+            this.logger.error(`Error processing NFT data: ${error.message}`);
+            throw error;
         }
+    }
+
+    async _processBatch(nfts) {
+        const groups = new Map();
+        
+        await Promise.all(nfts.map(async (nft) => {
+            try {
+                const key = this._generateMetadataKey(nft.metadata);
+                if (!groups.has(key)) {
+                    groups.set(key, {
+                        metadata: nft.metadata,
+                        items: [],
+                        stats: await this._getCollectionStatsFromCache(nft.collection?.address),
+                        lastAccessed: Date.now()
+                    });
+                }
+                groups.get(key).items.push(nft);
+            } catch (error) {
+                this.logger.error(`Error processing NFT in batch: ${error.message}`);
+            }
+        }));
 
         return groups;
     }
@@ -232,6 +343,32 @@ class NFTCollectionManager {
     _detectSuspiciousActivity(transaction) {
         // Implement suspicious activity detection
         return false; // Placeholder
+    }
+
+    async cleanup() {
+        try {
+            // Clear caches
+            this.metadataCache.clear();
+            this.statsCache.clear();
+            
+            // Clear collections and history
+            this.collections.clear();
+            this.activityHistory.clear();
+            
+            // Close connections
+            this.connectionPool.forEach(conn => {
+                try {
+                    conn.disconnect();
+                } catch (error) {
+                    this.logger.error(`Error disconnecting connection: ${error.message}`);
+                }
+            });
+            
+            this.logger.info('Successfully cleaned up NFT manager resources');
+        } catch (error) {
+            this.logger.error(`Error during cleanup: ${error.message}`);
+            throw error;
+        }
     }
 }
 

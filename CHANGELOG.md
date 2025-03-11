@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2024-03-11
 
 ### Added
+
 - Initial release
 - NFT metadata retrieval functionality
 - Trading statistics tracking
@@ -17,11 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Project documentation
 
 ### Changed
+
 - Optimized codebase structure
 - Improved error handling
 - Enhanced wallet initialization
 
 ### Fixed
+
 - Wallet loading mechanism
 - Python path issues in tests
-- Dependencies conflicts 
+- Dependencies conflicts

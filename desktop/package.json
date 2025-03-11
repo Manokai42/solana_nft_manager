@@ -1,0 +1,53 @@
+{
+  "name": "solana-nft-manager-desktop",
+  "version": "1.0.0",
+  "description": "Desktop companion app for Solana NFT Manager",
+  "main": "dist/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "tsc",
+    "watch": "tsc -w",
+    "lint": "eslint -c .eslintrc.json ./src",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "build": {
+    "appId": "com.manokai.solanaNFTManager",
+    "productName": "Solana NFT Manager",
+    "mac": {
+      "category": "public.app-category.finance",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "assets/icon.icns"
+    },
+    "files": [
+      "dist/**/*",
+      "assets/**/*",
+      "package.json"
+    ]
+  },
+  "dependencies": {
+    "@metaplex-foundation/mpl-token-metadata": "^2.13.0",
+    "@solana/web3.js": "^1.87.6",
+    "@types/electron-store": "^3.2.0",
+    "electron-log": "^5.0.1",
+    "electron-store": "^8.2.0",
+    "node-fetch": "^3.3.2",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "@types/ws": "^8.5.10",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3"
+  },
+  "author": "Manokai <Manokai1923@gmail.com>",
+  "license": "MIT"
+}
