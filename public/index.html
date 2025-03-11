@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solana NFT Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #512da8;
+            --secondary-color: #6c5ce7;
+            --success-color: #4CAF50;
+            --danger-color: #f44336;
+            --background-color: #f8f9fa;
+            --card-background: #ffffff;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --border-color: #e0e0e0;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1440px;
+            margin: 0 auto;
+        }
+
+        @media (min-width: 1024px) {
+            .dashboard {
+                grid-template-columns: 2fr 1fr;
+            }
+        }
+
+        .collections-view {
+            background: var(--card-background);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 4px var(--shadow-color);
+        }
+
+        .collection-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .filter-sort {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        select, input {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        select:focus, input:focus {
+            border-color: var(--primary-color);
+        }
+
+        .virtual-scroll-container {
+            height: calc(100vh - 200px);
+            overflow-y: auto;
+            position: relative;
+            scrollbar-width: thin;
+            scrollbar-color: var(--primary-color) var(--background-color);
+        }
+
+        .collection-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 10px;
+        }
+
+        .collection-card {
+            background: var(--card-background);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px var(--shadow-color);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            position: relative;
+        }
+
+        .collection-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px var(--shadow-color);
+        }
+
+        .collection-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .collection-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .stat-item {
+            background: var(--background-color);
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-item small {
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        .nft-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 10px;
+            background: var(--background-color);
+            border-radius: 8px;
+            scrollbar-width: thin;
+        }
+
+        .nft-card {
+            position: relative;
+            background: var(--card-background);
+            border-radius: 8px;
+            padding: 10px;
+            transition: transform 0.2s ease;
+        }
+
+        .nft-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .nft-card img {
+            width: 100%;
+            height: auto;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+
+        .nft-name {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .action-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+        }
+
+        .action-btn.primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .action-btn.secondary {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+
+        .action-btn.success {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .action-btn.danger {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .action-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .analytics-panel {
+            background: var(--card-background);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 4px var(--shadow-color);
+        }
+
+        .price-chart {
+            width: 100%;
+            height: 200px;
+            margin-top: 20px;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--background-color);
+            border-top: 2px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            background: var(--card-background);
+            box-shadow: 0 2px 8px var(--shadow-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+
+        .toast.success {
+            border-left: 4px solid var(--success-color);
+        }
+
+        .toast.error {
+            border-left: 4px solid var(--danger-color);
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: var(--card-background);
+            padding: 20px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="collections-view">
+            <div class="collection-controls">
+                <h2>NFT Collections</h2>
+                <div class="filter-sort">
+                    <select id="sortSelect" onchange="updateSort()">
+                        <option value="totalItems">Sort by Items</option>
+                        <option value="floorPrice">Sort by Floor Price</option>
+                        <option value="volume">Sort by Volume</option>
+                    </select>
+                    <input type="text" id="searchInput" placeholder="Search collections..." oninput="filterCollections()">
+                </div>
+            </div>
+            <div id="collectionsContainer" class="virtual-scroll-container">
+                <div id="collectionsGrid" class="collection-grid"></div>
+                <button id="loadMoreBtn" class="action-btn primary" onclick="loadMoreCollections()" style="width: 100%; margin-top: 20px;">
+                    Load More Collections
+                </button>
+            </div>
+        </div>
+
+        <div class="analytics-panel">
+            <h2>Analytics</h2>
+            <div id="analytics-content"></div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize variables
+        let selectedNFTs = new Set();
+        let collectionManager;
+        let currentPage = 0;
+        let totalPages = 0;
+        let isLoading = false;
+        let collections = new Map();
+        let sortOrder = 'totalItems';
+        let searchTerm = '';
+        let socket;
+
+        // Initialize WebSocket connection
+        function initializeWebSocket() {
+            socket = io(window.location.origin);
+
+            socket.on('connect', () => {
+                console.log('Connected to WebSocket server');
+            });
+
+            socket.on('stats_update', (data) => {
+                updateCollectionStats(data);
+            });
+
+            socket.on('disconnect', () => {
+                console.log('Disconnected from WebSocket server');
+            });
+        }
+
+        // Initialize Collection Manager
+        async function initializeCollectionManager() {
+            try {
+                const { solana } = window;
+                if (!solana?.isPhantom) {
+                    showToast('Please install Phantom wallet', 'error');
+                    return;
+                }
+
+                const response = await solana.connect();
+                const walletAddress = response.publicKey.toString();
+
+                const connection = new solanaWeb3.Connection(
+                    solana.connection.rpcEndpoint,
+                    'confirmed'
+                );
+
+                collectionManager = new NFTCollectionManager(connection, walletAddress);
+                await loadCollections();
+            } catch (error) {
+                console.error('Error initializing:', error);
+                showToast('Failed to initialize wallet connection', 'error');
+            }
+        }
+
+        // Load Collections
+        async function loadCollections(page = 0) {
+            if (isLoading) return;
+            isLoading = true;
+
+            try {
+                const loadMoreBtn = document.getElementById('loadMoreBtn');
+                loadMoreBtn.innerHTML = '<div class="loading-spinner"></div> Loading...';
+
+                const result = await collectionManager.loadNFTsByPage(page, 50, {
+                    // Add any filters here
+                });
+
+                totalPages = result.totalPages;
+
+                // Merge new collections with existing ones
+                for (const [key, collection] of result.nfts) {
+                    collections.set(key, collection);
+                    // Subscribe to collection updates
+                    if (socket) {
+                        socket.emit('subscribe_collection', collection.metadata.collection?.address);
+                    }
+                }
+
+                renderCollections();
+                updateAnalytics();
+
+                loadMoreBtn.innerHTML = 'Load More Collections';
+                loadMoreBtn.style.display = page >= totalPages - 1 ? 'none' : 'block';
+            } catch (error) {
+                console.error('Error loading collections:', error);
+                showToast('Failed to load collections', 'error');
+            } finally {
+                isLoading = false;
+            }
+        }
+
+        // Render Collections
+        function renderCollections() {
+            const grid = document.getElementById('collectionsGrid');
+            let html = '';
+
+            // Sort collections
+            const sortedCollections = [...collections.entries()].sort((a, b) => {
+                const collA = a[1];
+                const collB = b[1];
+
+                switch (sortOrder) {
+                    case 'floorPrice':
+                        return (collB.stats?.floorPrice || 0) - (collA.stats?.floorPrice || 0);
+                    case 'volume':
+                        return (collB.stats?.volumeLast24h || 0) - (collA.stats?.volumeLast24h || 0);
+                    default:
+                        return collB.items.length - collA.items.length;
+                }
+            });
+
+            // Filter collections
+            const filteredCollections = sortedCollections.filter(([key, collection]) => {
+                if (!searchTerm) return true;
+                const searchLower = searchTerm.toLowerCase();
+                return (
+                    collection.metadata.collection?.name?.toLowerCase().includes(searchLower) ||
+                    collection.metadata.symbol?.toLowerCase().includes(searchLower)
+                );
+            });
+
+            // Render filtered and sorted collections
+            for (const [key, collection] of filteredCollections) {
+                html += `
+                    <div class="collection-card">
+                        <div class="collection-header">
+                            <h3>${collection.metadata.collection?.name || 'Unnamed Collection'}</h3>
+                            <span>${collection.items.length} items</span>
+                        </div>
+                        <div class="collection-stats">
+                            <div class="stat-item">
+                                <small>Floor Price</small>
+                                <p>${collection.stats?.floorPrice?.toFixed(2) || 0} SOL</p>
+                            </div>
+                            <div class="stat-item">
+                                <small>24h Volume</small>
+                                <p>${collection.stats?.volumeLast24h?.toFixed(2) || 0} SOL</p>
+                            </div>
+                        </div>
+                        <div class="nft-grid">
+                            ${collection.items.map(nft => `
+                                <div class="nft-card" data-mint="${nft.mint}">
+                                    <input type="checkbox" class="nft-checkbox"
+                                           onchange="toggleNFTSelection('${nft.mint}')"
+                                           ${selectedNFTs.has(nft.mint) ? 'checked' : ''} />
+                                    ${nft.metadata.image ?
+                                        `<img src="${nft.metadata.image}" alt="${nft.metadata.name}" loading="lazy" />` :
+                                        '<div class="no-image">No Image</div>'
+                                    }
+                                    <p class="nft-name">${nft.metadata.name || 'Unnamed NFT'}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-top: 15px;">
+                            <button onclick="selectAllInCollection('${key}')" class="action-btn secondary">
+                                Select All
+                            </button>
+                            <button onclick="showCollectionDetails('${key}')" class="action-btn primary">
+                                View Details
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            grid.innerHTML = html;
+        }
+
+        // Update Analytics
+        async function updateAnalytics() {
+            const analyticsContent = document.getElementById('analytics-content');
+            let content = '<div class="analytics-grid">';
+
+            for (const [collectionAddress, collection] of collections) {
+                const performance = collectionManager.calculateCollectionPerformance(collectionAddress);
+                if (performance) {
+                    content += `
+                        <div class="stat-card">
+                            <h4>${collection.metadata.collection?.name || 'Unnamed Collection'}</h4>
+                            <p>Floor Price: ${performance.floorPrice} SOL</p>
+                            <p>24h Volume: ${performance.volume24h} SOL</p>
+                            <p>Price Change: ${performance.priceChange24h}%</p>
+                            <canvas id="chart-${collectionAddress}" class="price-chart"></canvas>
+                        </div>
+                    `;
+                }
+            }
+
+            content += '</div>';
+            analyticsContent.innerHTML = content;
+
+            // Initialize charts
+            for (const [collectionAddress, collection] of collections) {
+                const performance = collectionManager.calculateCollectionPerformance(collectionAddress);
+                if (performance) {
+                    const canvas = document.getElementById(`chart-${collectionAddress}`);
+                    if (canvas) {
+                        renderPriceChart(canvas, collection);
+                    }
+                }
+            }
+        }
+
+        // Render Price Chart
+        function renderPriceChart(canvas, collection) {
+            const ctx = canvas.getContext('2d');
+            const activity = collection.activityHistory || [];
+
+            if (activity.length < 2) return;
+
+            const prices = activity.map(tx => tx.price);
+            const dates = activity.map(tx => new Date(tx.timestamp));
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Price (SOL)',
+                        data: prices,
+                        borderColor: '#512da8',
+                        tension: 0.4,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'day'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.parsed.y.toFixed(2)} SOL`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // NFT Selection
+        function toggleNFTSelection(mint) {
+            if (selectedNFTs.has(mint)) {
+                selectedNFTs.delete(mint);
+            } else {
+                selectedNFTs.add(mint);
+            }
+            updateBatchButtons();
+        }
+
+        function selectAllInCollection(collectionKey) {
+            const collection = collections.get(collectionKey);
+            if (!collection) return;
+
+            const allSelected = collection.items.every(nft => selectedNFTs.has(nft.mint));
+
+            collection.items.forEach(nft => {
+                if (allSelected) {
+                    selectedNFTs.delete(nft.mint);
+                } else {
+                    selectedNFTs.add(nft.mint);
+                }
+            });
+
+            renderCollections();
+            updateBatchButtons();
+        }
+
+        // Batch Operations
+        async function batchTransfer() {
+            try {
+                const toAddress = prompt('Enter destination address:');
+                if (!toAddress) return;
+
+                const transactions = await collectionManager.batchTransfer(
+                    Array.from(selectedNFTs),
+                    toAddress
+                );
+
+                for (const tx of transactions) {
+                    const signature = await window.solana.signAndSendTransaction(tx);
+                    await collectionManager.connection.confirmTransaction(signature);
+                }
+
+                showToast('Batch transfer completed successfully!', 'success');
+                selectedNFTs.clear();
+                await loadCollections();
+            } catch (error) {
+                console.error('Batch transfer error:', error);
+                showToast('Error during batch transfer: ' + error.message, 'error');
+            }
+        }
+
+        async function batchBurn() {
+            try {
+                if (!confirm('Are you sure you want to burn these NFTs? This action cannot be undone.')) {
+                    return;
+                }
+
+                const transactions = await collectionManager.batchBurn(Array.from(selectedNFTs));
+
+                for (const tx of transactions) {
+                    const signature = await window.solana.signAndSendTransaction(tx);
+                    await collectionManager.connection.confirmTransaction(signature);
+                }
+
+                showToast('NFTs burned successfully!', 'success');
+                selectedNFTs.clear();
+                await loadCollections();
+            } catch (error) {
+                console.error('Batch burn error:', error);
+                showToast('Error during batch burn: ' + error.message, 'error');
+            }
+        }
+
+        // UI Helpers
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        function showModal(content) {
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    ${content}
+                    <button class="action-btn primary" onclick="this.closest('.modal').remove()">
+                        Close
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        // Event Listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeWebSocket();
+            initializeCollectionManager();
+
+            // Implement infinite scroll
+            const container = document.getElementById('collectionsContainer');
+            container.addEventListener('scroll', () => {
+                if (isLoading || currentPage >= totalPages - 1) return;
+
+                const { scrollTop, scrollHeight, clientHeight } = container;
+                if (scrollTop + clientHeight >= scrollHeight - 100) {
+                    currentPage++;
+                    loadCollections(currentPage);
+                }
+            });
+        });
+
+        function updateSort() {
+            sortOrder = document.getElementById('sortSelect').value;
+            renderCollections();
+        }
+
+        function filterCollections() {
+            searchTerm = document.getElementById('searchInput').value;
+            renderCollections();
+        }
+
+        async function showCollectionDetails(collectionKey) {
+            const collection = collections.get(collectionKey);
+            if (!collection) return;
+
+            const performance = collectionManager.calculateCollectionPerformance(collection.metadata.collection?.address);
+
+            const content = `
+                <h3>${collection.metadata.collection?.name || 'Collection Details'}</h3>
+                <div style="margin: 20px 0;">
+                    <h4>Statistics</h4>
+                    <p>Total Items: ${collection.items.length}</p>
+                    <p>Floor Price: ${performance?.floorPrice || 0} SOL</p>
+                    <p>24h Volume: ${performance?.volume24h || 0} SOL</p>
+                    <p>Price Change: ${performance?.priceChange24h || 0}%</p>
+                </div>
+                <canvas id="modal-chart-${collectionKey}" style="margin: 20px 0;"></canvas>
+            `;
+
+            showModal(content);
+
+            // Render chart in modal
+            const canvas = document.getElementById(`modal-chart-${collectionKey}`);
+            if (canvas) {
+                renderPriceChart(canvas, collection);
+            }
+        }
+    </script>
+</body>
+</html>

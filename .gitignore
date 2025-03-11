@@ -1,0 +1,130 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+.venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Local development
+.env
+.env.local
+.env.*.local
+
+# Coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# Solana
+.anchor/
+target/
+test-ledger/
+
+# Project specific
+test_wallet.json
+
+# Profiling
+*.prof
+*.stats
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# Project specific
+cache/
+test_data/
+*.keypair
+wallet-*.json
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp/
+.pnp.js
+
+# Testing
+coverage/
+.nyc_output/
+
+# Production
+out/
+
+# Environment variables
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+logs/
+
+# Solana specific
+.anchor/
+target/
+test-ledger/
+wallet-*.json
+*.keypair
+
+# Cache
+.cache/
+.webpack/
+.next/
+.nuxt/
+.cache/
+
+# Misc
+*.pem
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
